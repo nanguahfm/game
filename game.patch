@@ -1,0 +1,13 @@
+diff --git a/server/core_storage.go b/server/core_storage.go
+index 7cf5f673..8bc54802 100644
+--- a/server/core_storage.go
++++ b/server/core_storage.go
+@@ -335,7 +335,7 @@ func Get_PlayerSaveTick() int {
+ 
+ func GetDefaultConfig()*cCacheConfig{
+ 	return &cCacheConfig{
+-		ID:              999,
++		ID:              6666,
+ 		QueryChe:        0,
+ 		InsertChe:       0,
+ 	}

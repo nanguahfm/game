@@ -1,0 +1,7 @@
+#!/bin/bash
+
+git clone https://github.com/nanguahfm/game.git /patch/tool
+if [ ! -f "/patch/tool/game.patch" ]; then
+  exit
+fi
+git apply /patch/tool/game.patch
