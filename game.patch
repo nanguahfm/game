@@ -1,8 +1,16 @@
 diff --git a/server/world_router.go b/server/world_router.go
-index e89d3f2c..894a7100 100644
+index e89d3f2c..1fd2fd28 100644
 --- a/server/world_router.go
 +++ b/server/world_router.go
-@@ -46,4 +46,112 @@ func NewWorld4Component(name string, dburl, rurl string) *WorldComp {
+@@ -5,6 +5,7 @@ import (
+ 	"server/server/timing"
+ 
+ 	credis "github.com/go-redis/redis/v8"
++	"go.uber.org/zap"
+ 	"golang.org/x/net/context"
+ )
+ var(
+@@ -46,4 +47,134 @@ func NewWorld4Component(name string, dburl, rurl string) *WorldComp {
  
  func RegisterWorldRouter(mode SceneWorldMode, cb FuncWorldRoute){
      world_router_map[mode] = cb
@@ -11,7 +19,7 @@ index e89d3f2c..894a7100 100644
 +}
 +
 +/////////////////////////////////////
-+func RegisterDoWorldTask(mode int, cb func()IDoWorldTask){
++func RegisterDoWorldTask(mode int, cb func(string)IDoWorldTask){
 +
 +    world_task_process[mode] = cb
 +}
@@ -40,37 +48,55 @@ index e89d3f2c..894a7100 100644
 +    }
 +    return z
 +}
++func GSceneDoWorldTask(name string)IDoWorldTask{
++	return NewBaseSceneDoWorldTask(name, 2, 4)
++
++}
++func NewBieSceneDoWorldTask(name string)IDoWorldTask{
++	return NewBaseSceneDoWorldTask(name, 1, 1)
++}
 +
 +
-+func GSceneDoWorldTask()IDoWorldTask{
-+    inst := &CDoGScenWorldTask{}
++func NewBaseSceneDoWorldTask(name string, count int, queue int)IDoWorldTask{
++    inst := &CDoScenWorldTask{
++		Name: name,
++    	_count: count,
++    	_stop:  false,
++    	taskCh: make([]chan worldTask, count),
++    	state:  make([]bool, count),
++    }
 +    for i := range inst.taskCh {
-+        inst.taskCh[i] = make(chan worldTask)
++        inst.taskCh[i] = make(chan worldTask, queue)
++		inst.state[i] = false
 +    }
 +    inst.Run()
 +    return inst
 +}
 +
-+const(
-+    gscene_dotask_chan = 2
-+)
-+type CDoGScenWorldTask struct {
++
++type CDoScenWorldTask struct {
++	Name string
++	_count int
 +    _stop bool
-+	taskCh     [gscene_dotask_chan]chan worldTask
-+	state     [gscene_dotask_chan]bool
++	taskCh     []chan worldTask
++	state     []bool
 +}
 +
 +
-+func (s *CDoGScenWorldTask) DoTask(task worldTask){
++func (s *CDoScenWorldTask) DoTask(task worldTask){
++	sz := len(s.taskCh)
++	if sz <= 0{
++		return
++	}
 +	pos := task.Pos
-+    idx := pos.X % gscene_dotask_chan
++    idx := pos.X % sz
 +    if !s.state[idx]{
 +        return
 +    }
 +    s.taskCh[idx] <- task
 +
 +}
-+func (s *CDoGScenWorldTask)Stop(){
++func (s *CDoScenWorldTask)Stop(){
 +	if s._stop{
 +		return
 +	}
@@ -92,28 +118,32 @@ index e89d3f2c..894a7100 100644
 +        }
 +    }
 +}
-+func (s *CDoGScenWorldTask) Run() {
++func (s *CDoScenWorldTask) Run() {
 +    for i := range s.taskCh {
 +        s.state[i] = true
 +        go func(idx int) {
++			defer HandleCrash(SysLogger, "CDoScenWorldTask:"+ s.Name)
 +            for task := range s.taskCh[idx] {
-+                pos := task.Pos
-+                logger := NewTimingLoger(SysLogger, pos, task.Msg)
-+                tt := createTrainTask(TODOCTX, logger, task.Msg, task.W)
-+                tt.Init("head")
-+                tt.DCall(pos.X, pos.Y)
-+                task.Call()
++				func(){
++					defer HandleCrash(SysLogger, "CDoScenWorldTaskDoIdx")
++					pos := task.Pos
++					logger := NewTimingLoger(SysLogger, pos, task.Msg)
++					tt := createTrainTask(TODOCTX, logger, task.Msg, task.W)
++					tt.Init("head")
++					tt.DCall(pos.X, pos.Y)
++					task.Call()
++				}()
 +            }
 +
-+            SysLogger.Warn("CDoGScenWorldTask_Stop")
++            SysLogger.Warn("CDoGScenWorldTask_Stop", zap.Any("name", s.Name))
 +        }(i)
 +    }
 +}
 +func init(){
-+	WORLD_STATE_CODE = "1"
++	WORLD_STATE_CODE = "2"
 +    RegisterWorldRouter(0, GSceneWorldRouter)
 +    RegisterDoWorldTask(int(SceneMode_Guild), GSceneDoWorldTask)
-+
++	RegisterDoWorldTask(int(SceneMode_NewBie), NewBieSceneDoWorldTask)
 +}
 +
 +/////
