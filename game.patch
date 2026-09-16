@@ -1,21 +1,16 @@
 diff --git a/server/world_router.go b/server/world_router.go
-index e89d3f2c..d9229398 100644
+index e89d3f2c..894a7100 100644
 --- a/server/world_router.go
 +++ b/server/world_router.go
-@@ -3,6 +3,7 @@ package server
- import (
- 	"server/server/storagetask"
- 	"server/server/timing"
-+	"sync"
- 
- 	credis "github.com/go-redis/redis/v8"
- 	"golang.org/x/net/context"
-@@ -46,4 +47,105 @@ func NewWorld4Component(name string, dburl, rurl string) *WorldComp {
+@@ -46,4 +46,112 @@ func NewWorld4Component(name string, dburl, rurl string) *WorldComp {
  
  func RegisterWorldRouter(mode SceneWorldMode, cb FuncWorldRoute){
      world_router_map[mode] = cb
+-}
+\ No newline at end of file
 +}
 +
++/////////////////////////////////////
 +func RegisterDoWorldTask(mode int, cb func()IDoWorldTask){
 +
 +    world_task_process[mode] = cb
@@ -60,7 +55,7 @@ index e89d3f2c..d9229398 100644
 +    gscene_dotask_chan = 2
 +)
 +type CDoGScenWorldTask struct {
-+    stopOnce sync.Once
++    _stop bool
 +	taskCh     [gscene_dotask_chan]chan worldTask
 +	state     [gscene_dotask_chan]bool
 +}
@@ -76,7 +71,10 @@ index e89d3f2c..d9229398 100644
 +
 +}
 +func (s *CDoGScenWorldTask)Stop(){
-+    s.stopOnce.Do(func() {
++	if s._stop{
++		return
++	}
++   	{
 +        for i := range s.taskCh {
 +            s.state[i] = false
 +            drain:
@@ -92,7 +90,7 @@ index e89d3f2c..d9229398 100644
 +            }
 +            close(s.taskCh[i])
 +        }
-+    })
++    }
 +}
 +func (s *CDoGScenWorldTask) Run() {
 +    for i := range s.taskCh {
@@ -112,8 +110,11 @@ index e89d3f2c..d9229398 100644
 +    }
 +}
 +func init(){
++	WORLD_STATE_CODE = "1"
 +    RegisterWorldRouter(0, GSceneWorldRouter)
 +    RegisterDoWorldTask(int(SceneMode_Guild), GSceneDoWorldTask)
 +
- }
++}
++
++/////
 \ No newline at end of file
