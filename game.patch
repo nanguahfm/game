@@ -1,13 +1,119 @@
-diff --git a/server/core_storage.go b/server/core_storage.go
-index 7cf5f673..8bc54802 100644
---- a/server/core_storage.go
-+++ b/server/core_storage.go
-@@ -335,7 +335,7 @@ func Get_PlayerSaveTick() int {
+diff --git a/server/world_router.go b/server/world_router.go
+index e89d3f2c..d9229398 100644
+--- a/server/world_router.go
++++ b/server/world_router.go
+@@ -3,6 +3,7 @@ package server
+ import (
+ 	"server/server/storagetask"
+ 	"server/server/timing"
++	"sync"
  
- func GetDefaultConfig()*cCacheConfig{
- 	return &cCacheConfig{
--		ID:              999,
-+		ID:              6666,
- 		QueryChe:        0,
- 		InsertChe:       0,
- 	}
+ 	credis "github.com/go-redis/redis/v8"
+ 	"golang.org/x/net/context"
+@@ -46,4 +47,105 @@ func NewWorld4Component(name string, dburl, rurl string) *WorldComp {
+ 
+ func RegisterWorldRouter(mode SceneWorldMode, cb FuncWorldRoute){
+     world_router_map[mode] = cb
++}
++
++func RegisterDoWorldTask(mode int, cb func()IDoWorldTask){
++
++    world_task_process[mode] = cb
++}
++
++
++func GSceneWorldRouter(name string, dburl, rurl string)*WorldComp {
++    cfg := NewGameSceneConfig(name)
++    if !cfg.IsGScene(){
++        return NewWorld4Component(name, dburl, rurl)
++    }
++    sid := GetServerIdByGId(TODOCTX, SysLogger, GuildIdType(cfg.SceneId()))
++    if sid != TryGetServerId(){
++        return NewWorld4Component(name, dburl, rurl)
++    }
++    cc := ServerWorld.cache()
++    cache, ok := cc.(*storagetask.IBaseCachePool)
++    if !ok{
++        return NewWorld4Component(name, dburl, rurl)
++    }
++    z := &WorldComp{
++    	db:     ServerWorld.db().Clone(),
++    	c:      cache.Clone(),
++    	man:    ServerWorld.man().Clone(),
++    	timing: ServerWorld.timing().Clone(),
++        unreal: true,
++    }
++    return z
++}
++
++
++func GSceneDoWorldTask()IDoWorldTask{
++    inst := &CDoGScenWorldTask{}
++    for i := range inst.taskCh {
++        inst.taskCh[i] = make(chan worldTask)
++    }
++    inst.Run()
++    return inst
++}
++
++const(
++    gscene_dotask_chan = 2
++)
++type CDoGScenWorldTask struct {
++    stopOnce sync.Once
++	taskCh     [gscene_dotask_chan]chan worldTask
++	state     [gscene_dotask_chan]bool
++}
++
++
++func (s *CDoGScenWorldTask) DoTask(task worldTask){
++	pos := task.Pos
++    idx := pos.X % gscene_dotask_chan
++    if !s.state[idx]{
++        return
++    }
++    s.taskCh[idx] <- task
++
++}
++func (s *CDoGScenWorldTask)Stop(){
++    s.stopOnce.Do(func() {
++        for i := range s.taskCh {
++            s.state[i] = false
++            drain:
++            for {
++                select {
++                case task, ok := <- s.taskCh[i]:
++                    if ok {
++                        ServerWorld.SaveTask(task.W.Name(), task.Msg)
++                    }
++                default:
++                    break drain
++                }
++            }
++            close(s.taskCh[i])
++        }
++    })
++}
++func (s *CDoGScenWorldTask) Run() {
++    for i := range s.taskCh {
++        s.state[i] = true
++        go func(idx int) {
++            for task := range s.taskCh[idx] {
++                pos := task.Pos
++                logger := NewTimingLoger(SysLogger, pos, task.Msg)
++                tt := createTrainTask(TODOCTX, logger, task.Msg, task.W)
++                tt.Init("head")
++                tt.DCall(pos.X, pos.Y)
++                task.Call()
++            }
++
++            SysLogger.Warn("CDoGScenWorldTask_Stop")
++        }(i)
++    }
++}
++func init(){
++    RegisterWorldRouter(0, GSceneWorldRouter)
++    RegisterDoWorldTask(int(SceneMode_Guild), GSceneDoWorldTask)
++
+ }
+\ No newline at end of file
