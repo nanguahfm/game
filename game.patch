@@ -1,5 +1,5 @@
 diff --git a/server/world_router.go b/server/world_router.go
-index e89d3f2c..ef7e746f 100644
+index e89d3f2c..9d082441 100644
 --- a/server/world_router.go
 +++ b/server/world_router.go
 @@ -5,7 +5,9 @@ import (
@@ -58,7 +58,7 @@ index e89d3f2c..ef7e746f 100644
 +var(
 +
 +	newbie_dotask = &NewBieDoScenWorldTask{
-+		CDoScenWorldTask: _NewBaseSceneDoWorldTask("NewBie", 64, 1),
++		CDoScenWorldTask: _NewBaseSceneDoWorldTask("NewBie", 32, 1),
 +	}
 +)
 +func NewBieSceneDoWorldTask(name string)IDoWorldTask{
@@ -205,7 +205,7 @@ index e89d3f2c..ef7e746f 100644
 +    }
 +}
 +func init(){
-+	WORLD_STATE_CODE = "6"
++	WORLD_STATE_CODE = "8"
 +    RegisterWorldRouter(0, GSceneWorldRouter)
 +    RegisterDoWorldTask(int(SceneMode_Guild), GSceneDoWorldTask)
 +	RegisterDoWorldTask(int(SceneMode_NewBie), NewBieSceneDoWorldTask)
