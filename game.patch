@@ -1,16 +1,18 @@
 diff --git a/server/world_router.go b/server/world_router.go
-index e89d3f2c..1fd2fd28 100644
+index e89d3f2c..e36686a5 100644
 --- a/server/world_router.go
 +++ b/server/world_router.go
-@@ -5,6 +5,7 @@ import (
+@@ -5,7 +5,9 @@ import (
  	"server/server/timing"
  
  	credis "github.com/go-redis/redis/v8"
 +	"go.uber.org/zap"
  	"golang.org/x/net/context"
++	"sync"
  )
  var(
-@@ -46,4 +47,134 @@ func NewWorld4Component(name string, dburl, rurl string) *WorldComp {
+ 
+@@ -46,4 +48,197 @@ func NewWorld4Component(name string, dburl, rurl string) *WorldComp {
  
  func RegisterWorldRouter(mode SceneWorldMode, cb FuncWorldRoute){
      world_router_map[mode] = cb
@@ -52,16 +54,64 @@ index e89d3f2c..1fd2fd28 100644
 +	return NewBaseSceneDoWorldTask(name, 2, 4)
 +
 +}
++
++var(
++
++	newbie_dotask = &NewBieDoScenWorldTask{
++		CDoScenWorldTask: _NewBaseSceneDoWorldTask("NewBie", 32, 1),
++	}
++)
 +func NewBieSceneDoWorldTask(name string)IDoWorldTask{
-+	return NewBaseSceneDoWorldTask(name, 1, 1)
++	newbie_dotask.Run()
++	return newbie_dotask
 +}
 +
 +
++type NewBieDoScenWorldTask struct {
++	*CDoScenWorldTask
++	total int
++	runOnce sync.Once
++
++}
++func (s *NewBieDoScenWorldTask)Init(){
++	cb := func(){
++		s.Run()
++	}
++	s.runOnce.Do(cb)
++
++}
++func (s *NewBieDoScenWorldTask) Stop(){
++
++
++}
++func (s *NewBieDoScenWorldTask) Start(){
++
++
++}
++
++func (s *NewBieDoScenWorldTask) DoTask(task worldTask){
++	sz := len(s.taskCh)
++	if sz <= 0{
++		return
++	}
++	s.total += 1
++    idx := s.total % sz
++    if !s.state[idx]{
++        return
++    }
++    s.taskCh[idx] <- task
++
++}
++
 +func NewBaseSceneDoWorldTask(name string, count int, queue int)IDoWorldTask{
++	return _NewBaseSceneDoWorldTask(name, count, queue)
++}
++
++func _NewBaseSceneDoWorldTask(name string, count int, queue int)*CDoScenWorldTask{
 +    inst := &CDoScenWorldTask{
 +		Name: name,
 +    	_count: count,
-+    	_stop:  false,
++    	_run:  false,
 +    	taskCh: make([]chan worldTask, count),
 +    	state:  make([]bool, count),
 +    }
@@ -69,7 +119,7 @@ index e89d3f2c..1fd2fd28 100644
 +        inst.taskCh[i] = make(chan worldTask, queue)
 +		inst.state[i] = false
 +    }
-+    inst.Run()
++    
 +    return inst
 +}
 +
@@ -77,11 +127,15 @@ index e89d3f2c..1fd2fd28 100644
 +type CDoScenWorldTask struct {
 +	Name string
 +	_count int
-+    _stop bool
++    _run bool
 +	taskCh     []chan worldTask
 +	state     []bool
 +}
 +
++func (s *CDoScenWorldTask)Start(){
++	s.Run()
++
++}
 +
 +func (s *CDoScenWorldTask) DoTask(task worldTask){
 +	sz := len(s.taskCh)
@@ -97,11 +151,15 @@ index e89d3f2c..1fd2fd28 100644
 +
 +}
 +func (s *CDoScenWorldTask)Stop(){
-+	if s._stop{
++	if !s._run{
 +		return
 +	}
++	s._run = false
 +   	{
 +        for i := range s.taskCh {
++			if !s.state[i]{
++				continue
++			}
 +            s.state[i] = false
 +            drain:
 +            for {
@@ -119,7 +177,14 @@ index e89d3f2c..1fd2fd28 100644
 +    }
 +}
 +func (s *CDoScenWorldTask) Run() {
++	if s._run{
++		return
++	}
++	s._run = true
 +    for i := range s.taskCh {
++		if s.state[i]{
++			continue
++		}
 +        s.state[i] = true
 +        go func(idx int) {
 +			defer HandleCrash(SysLogger, "CDoScenWorldTask:"+ s.Name)
@@ -140,7 +205,7 @@ index e89d3f2c..1fd2fd28 100644
 +    }
 +}
 +func init(){
-+	WORLD_STATE_CODE = "2"
++	WORLD_STATE_CODE = "3"
 +    RegisterWorldRouter(0, GSceneWorldRouter)
 +    RegisterDoWorldTask(int(SceneMode_Guild), GSceneDoWorldTask)
 +	RegisterDoWorldTask(int(SceneMode_NewBie), NewBieSceneDoWorldTask)
