@@ -1,5 +1,5 @@
 diff --git a/server/world_router.go b/server/world_router.go
-index e89d3f2c..e36686a5 100644
+index e89d3f2c..22806168 100644
 --- a/server/world_router.go
 +++ b/server/world_router.go
 @@ -5,7 +5,9 @@ import (
@@ -192,7 +192,7 @@ index e89d3f2c..e36686a5 100644
 +				func(){
 +					defer HandleCrash(SysLogger, "CDoScenWorldTaskDoIdx")
 +					pos := task.Pos
-+					logger := NewTimingLoger(SysLogger, pos, task.Msg)
++					logger := NewTimingLoger(SysLogger, pos, task.Msg).With(zap.Any("w", idx + 1))
 +					tt := createTrainTask(TODOCTX, logger, task.Msg, task.W)
 +					tt.Init("head")
 +					tt.DCall(pos.X, pos.Y)
@@ -205,7 +205,7 @@ index e89d3f2c..e36686a5 100644
 +    }
 +}
 +func init(){
-+	WORLD_STATE_CODE = "3"
++	WORLD_STATE_CODE = "5"
 +    RegisterWorldRouter(0, GSceneWorldRouter)
 +    RegisterDoWorldTask(int(SceneMode_Guild), GSceneDoWorldTask)
 +	RegisterDoWorldTask(int(SceneMode_NewBie), NewBieSceneDoWorldTask)
