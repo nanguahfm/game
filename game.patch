@@ -1,5 +1,5 @@
 diff --git a/server/world_router.go b/server/world_router.go
-index e89d3f2c..9d082441 100644
+index e89d3f2c..0f15d4d1 100644
 --- a/server/world_router.go
 +++ b/server/world_router.go
 @@ -5,7 +5,9 @@ import (
@@ -12,7 +12,7 @@ index e89d3f2c..9d082441 100644
  )
  var(
  
-@@ -46,4 +48,197 @@ func NewWorld4Component(name string, dburl, rurl string) *WorldComp {
+@@ -46,4 +48,252 @@ func NewWorld4Component(name string, dburl, rurl string) *WorldComp {
  
  func RegisterWorldRouter(mode SceneWorldMode, cb FuncWorldRoute){
      world_router_map[mode] = cb
@@ -26,13 +26,68 @@ index e89d3f2c..9d082441 100644
 +    world_task_process[mode] = cb
 +}
 +
++var(
++	xr_copm = XRSceneComp{
++		kv: sync.Map{},
++	}
++	
++
++)
++
++type XRSceneComp struct{
++	kv sync.Map
++}
++func (c *XRSceneComp)Get(sid int)*WorldComp{
++	v, ok := c.kv.Load(sid)
++	if ok{
++		z := v.(*WorldComp)
++		return WorldCompClone(z)		
++	}
++	cfg := ServerClusterGoss.GetSceneDataByScene(sid)
++	if cfg == nil{
++		return nil
++	}
++	comp := NewWorld4Component(cfg.Name, cfg.Db, cfg.Cache)
++	if comp == nil{
++		return nil
++	}
++	
++	v1, ok := c.kv.LoadOrStore(sid, comp)
++	if !ok{
++		return WorldCompClone(comp)
++	}
++	comp.c.Close()
++	comp.db.Close()
++	comp.man.Close()
++	comp.timing.Close(3)
++	return WorldCompClone(v1.(*WorldComp))
++}
++
++func WorldCompClone(v *WorldComp)*WorldComp{
++	cache, ok := v.c.(*storagetask.IBaseCachePool)
++	if !ok{
++		return nil
++	}
++	return &WorldComp{
++		db:     v.db.Clone(),
++		c:      cache.Clone(),
++		man:    v.man.Clone(),
++		timing: v.timing.Clone(),
++		unreal: true,
++	}
++
++}
 +
 +func GSceneWorldRouter(name string, dburl, rurl string)*WorldComp {
 +    cfg := NewGameSceneConfig(name)
 +    if !cfg.IsGScene(){
 +        return NewWorld4Component(name, dburl, rurl)
 +    }
-+    sid := GetServerIdByGId(TODOCTX, SysLogger, GuildIdType(cfg.SceneId()))
++	sid := GetServerIdByGId(TODOCTX, SysLogger, GuildIdType(cfg.SceneId()))
++	if cfg.IsXR(){
++		return xr_copm.Get(sid)
++	}
++    
 +    if sid != TryGetServerId(){
 +        return NewWorld4Component(name, dburl, rurl)
 +    }
@@ -205,7 +260,7 @@ index e89d3f2c..9d082441 100644
 +    }
 +}
 +func init(){
-+	WORLD_STATE_CODE = "8"
++	WORLD_STATE_CODE = "9"
 +    RegisterWorldRouter(0, GSceneWorldRouter)
 +    RegisterDoWorldTask(int(SceneMode_Guild), GSceneDoWorldTask)
 +	RegisterDoWorldTask(int(SceneMode_NewBie), NewBieSceneDoWorldTask)
