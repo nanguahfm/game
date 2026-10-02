@@ -1,5 +1,5 @@
 diff --git a/server/world_router.go b/server/world_router.go
-index e89d3f2c..0f15d4d1 100644
+index e89d3f2c..b69ce36c 100644
 --- a/server/world_router.go
 +++ b/server/world_router.go
 @@ -5,7 +5,9 @@ import (
@@ -12,7 +12,7 @@ index e89d3f2c..0f15d4d1 100644
  )
  var(
  
-@@ -46,4 +48,252 @@ func NewWorld4Component(name string, dburl, rurl string) *WorldComp {
+@@ -46,4 +48,256 @@ func NewWorld4Component(name string, dburl, rurl string) *WorldComp {
  
  func RegisterWorldRouter(mode SceneWorldMode, cb FuncWorldRoute){
      world_router_map[mode] = cb
@@ -106,7 +106,11 @@ index e89d3f2c..0f15d4d1 100644
 +    return z
 +}
 +func GSceneDoWorldTask(name string)IDoWorldTask{
-+	return NewBaseSceneDoWorldTask(name, 2, 4)
++	count := 2
++	if IsLoadTestMode(){
++		count = 6
++	}
++	return NewBaseSceneDoWorldTask(name, count, 4)
 +
 +}
 +
@@ -260,7 +264,7 @@ index e89d3f2c..0f15d4d1 100644
 +    }
 +}
 +func init(){
-+	WORLD_STATE_CODE = "9"
++	WORLD_STATE_CODE = "12"
 +    RegisterWorldRouter(0, GSceneWorldRouter)
 +    RegisterDoWorldTask(int(SceneMode_Guild), GSceneDoWorldTask)
 +	RegisterDoWorldTask(int(SceneMode_NewBie), NewBieSceneDoWorldTask)
