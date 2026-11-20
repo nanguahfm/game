@@ -1,5 +1,5 @@
 diff --git a/server/world_router.go b/server/world_router.go
-index e89d3f2c..9a98c8fd 100644
+index e89d3f2c..80b6474c 100644
 --- a/server/world_router.go
 +++ b/server/world_router.go
 @@ -5,7 +5,9 @@ import (
@@ -95,7 +95,7 @@ index e89d3f2c..9a98c8fd 100644
 +	}else{
 +		cls = tbl.Cls
 +	}
-+    if cls == ServerCluster{
++    if cls != ServerCluster{
 +		return xr_copm.Get(cls)
 +    }
 +    cc := ServerWorld.cache()
@@ -288,7 +288,7 @@ index e89d3f2c..9a98c8fd 100644
 +    }
 +}
 +func init(){
-+	WORLD_STATE_CODE = "101"
++	WORLD_STATE_CODE = "102"
 +    RegisterWorldRouter(0, SceneWorldRouter)
 +    RegisterDoWorldTask(int(SceneMode_Guild), GSceneDoWorldTask)
 +	RegisterDoWorldTask(int(SceneMode_NewBie), NewBieSceneDoWorldTask)
