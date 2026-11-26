@@ -1,5 +1,5 @@
 diff --git a/server/world_router.go b/server/world_router.go
-index e89d3f2c..80b6474c 100644
+index e89d3f2c..eed2b952 100644
 --- a/server/world_router.go
 +++ b/server/world_router.go
 @@ -5,7 +5,9 @@ import (
@@ -12,7 +12,7 @@ index e89d3f2c..80b6474c 100644
  )
  var(
  
-@@ -46,4 +48,280 @@ func NewWorld4Component(name string, dburl, rurl string) *WorldComp {
+@@ -46,4 +48,282 @@ func NewWorld4Component(name string, dburl, rurl string) *WorldComp {
  
  func RegisterWorldRouter(mode SceneWorldMode, cb FuncWorldRoute){
      world_router_map[mode] = cb
@@ -38,6 +38,7 @@ index e89d3f2c..80b6474c 100644
 +	kv sync.Map
 +}
 +func (c *XRSceneComp)Get(cls string)*WorldComp{
++	SysLogger.Info("XRSceneComp", zap.Any("cls", cls))
 +	v, ok := c.kv.Load(cls)
 +	if ok{
 +		z := v.(*WorldComp)
@@ -51,11 +52,12 @@ index e89d3f2c..80b6474c 100644
 +	if comp == nil{
 +		return nil
 +	}
-+	
++	SysLogger.Info("XRSceneComp1", zap.Any("cls", cls))
 +	v1, ok := c.kv.LoadOrStore(cls, comp)
 +	if !ok{
 +		return WorldCompClone(comp)
 +	}
++	
 +	comp.c.Close()
 +	comp.db.Close()
 +	comp.man.Close()
@@ -288,7 +290,7 @@ index e89d3f2c..80b6474c 100644
 +    }
 +}
 +func init(){
-+	WORLD_STATE_CODE = "102"
++	WORLD_STATE_CODE = "105"
 +    RegisterWorldRouter(0, SceneWorldRouter)
 +    RegisterDoWorldTask(int(SceneMode_Guild), GSceneDoWorldTask)
 +	RegisterDoWorldTask(int(SceneMode_NewBie), NewBieSceneDoWorldTask)
